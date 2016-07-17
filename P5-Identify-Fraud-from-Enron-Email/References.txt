@@ -1,0 +1,6 @@
+https://en.wikipedia.org/wiki/Enron
+http://scikit-learn.org/stable/supervised_learning.html
+http://scikit-learn.org/stable/auto_examples/applications/plot_outlier_detection_housing.html
+http://scikit-learn.org/stable/modules/grid_search.html
+http://scikit-learn.org/stable/modules/cross_validation.html
+http://scikit-learn.org/stable/auto_examples/model_selection/plot_precision_recall.html

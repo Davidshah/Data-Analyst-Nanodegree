@@ -1,0 +1,924 @@
+Exploration of Prosper Loan Data by David Shahrestani
+========================================================
+
+# Introduction
+[Prosper loan data](https://docs.google.com/document/d/1qEcwltBMlRYZT-l699-71TzInWfk4W9q5rTCSvDVMpc/pub?embedded=true) provided by Udacity (last updated 3/11/14)
+
+[Prosper.com](https://www.prosper.com/landing) is a peer-to-peer lending marketplace. Borrowers request personal loans on Prosper and investors (individual or institutional) can fund anywhere from $2,000 to $35,000 per loan request. In addition to credit scores, ratings, and histories, investors can consider borrowers' personal loan descriptions, endorsements from friends, and community affiliations. Prosper handles the servicing of the loan and collects and distributes borrower payments and interest back to the loan investors.
+
+I will explore this data set with the goal of understanding the relationships between [Prosper's lending variables](https://docs.google.com/spreadsheets/d/1gDyi_L4UvIrLTEC6Wri5nbaMmkGmLQBk-Yx3z0XDEtI/edit#gid=0) and possibly using them to make predictions.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, packages}
+# Load all of the packages that you end up using
+# in your analysis in this code chunk.
+
+# Notice that the parameter "echo" was set to FALSE for this code chunk.
+# This prevents the code from displaying in the knitted HTML output.
+# You should set echo=FALSE for all code chunks in your file.
+library(ggplot2)
+library(gridExtra)
+library(dplyr)
+library(scales)
+library(memisc)
+library(RColorBrewer)
+library(GGally)
+library(knitr)
+library(lubridate)
+library(psych)
+```
+
+# Load and structure the data
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Load_the_data}
+# Load the Data
+df <- read.csv("prosperLoanData.csv")
+
+# Summarize the data set
+dim(df)
+```
+
+The data set contains an overwhelming 81 variables for analysis. I have chosen 17 variables that I feel best serve my objective for this project. These variables are as follows:
+
+#### Loan Profile:
+* LoanStatus: The current status of the loan: "Current or Paid", "Past Due", "Defaulted or Chargedoff".
+* LoanOriginationDate: The date the loan was originated.
+* Term: The length of the loan expressed in months.
+* TimeUntilClosed: ClosedDate - LoanOriginationDate. A custom variable in months.
+* ListingCategory: The category of the listing that the borrower selected when posting their listing.
+* BorrowerRate: The Borrower's interest rate for the loan.
+* LoanCurrentDaysDelinquent: The number of days delinquent.
+
+#### Borrower Profile:
+* BorrowerState: The two letter abbreviation of the state of the address of the borrower at the time the Listing was created.
+* Recommendations: Number of recommendations the borrower had at the time the listing was created.
+* IsBorrowerHomeowner: A Borrower will be classified as a homeowner if they have a mortgage on their credit profile or provide documentation confirming they are a homeowner.
+* StatedMonthlyIncome: The monthly income the borrower stated at the time the listing was created.
+
+#### Credit Profile:
+* CreditScore: Credit score averaged from consumer credit rating agencies.
+* BankcardUtilization: The percentage of available revolving credit that is utilized at the time the credit profile was pulled.
+* CurrentDelinquencies: Number of accounts delinquent at the time the credit profile was pulled.
+* InquiriesLast6Months: Number of inquiries in the past six months at the time the credit profile was pulled.
+* DebtToIncomeRatio: The debt to income ratio of the borrower at the time the credit profile was pulled. This value is Null if the debt to income ratio is not available. This value is capped at 10.01 (any debt to income ratio larger than 1000% will be returned as 1001%).
+* PublicRecordsLast10Years: Number of public records in the past 10 years at the time the credit profile was pulled.
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Structure_the_data}
+# Remove Canceled loans from the data set
+df <- subset(df, df$LoanStatus != "Cancelled")
+
+# Create CreditScore variable
+df <- mutate(df, CreditScore = round((CreditScoreRangeLower + CreditScoreRangeUpper) / 2, 0))
+
+# Mutate loan status variable
+df <- mutate(df, LoanStatus = ifelse(LoanStatus == "Completed" |
+                                 LoanStatus == "Current" |
+                                 LoanStatus == "FinalPaymentInProgress", "Current or Paid",
+                                 ifelse(LoanStatus == "Chargedoff" |
+                                          LoanStatus == "Defaulted", "Defaulted or Chargedoff",
+                                        "Past Due")))
+
+df$LoanStatus <- ordered(df$LoanStatus, c("Defaulted or Chargedoff", "Past Due", "Current or Paid"))
+
+# Format date variables
+df <- mutate(df, LoanOriginationDate = format(ymd_hms(LoanOriginationDate), "%m/%d/%y"))
+df <- mutate(df, ClosedDate = format(ymd_hms(ClosedDate), "%m/%d/%y"))
+
+df$LoanOriginationDate <-as.Date(df$LoanOriginationDate, "%m/%d/%y")
+df$ClosedDate <-as.Date(df$ClosedDate, "%m/%d/%y")
+
+# Create TimeUntilClosed variable
+df <- mutate(df, TimeUntilClosed = round((ClosedDate - LoanOriginationDate) / 365 * 12, 1))
+df$TimeUntilClosed <- as.numeric(df$TimeUntilClosed)
+
+# Format listing category as factor
+df$ListingCategory <- factor(df$ListingCategory..numeric.,
+                             labels=c("Not available", "Debt consolidation",
+                                      "Home improvement", "Business",
+                                      "Personal loan", "Student use",
+                                      "Auto", "Other", "Baby & Adoption Loans",
+                                      "Boat", "Cosmetic Procedures", 
+                                      "Engagement Ring Financing",
+                                      "Green Loans", "Household Expenses",
+                                      "Large Purchases", "Medical/Dental",
+                                      "Motorcycle", "RV", "Taxes",
+                                      "Vacation", "Wedding Loans"))
+
+#Format Term as ordered factor
+df$Term <- ordered(df$Term, c(12, 36, 60))
+
+# Update dataframe with limited variables for analysis
+df <- df %>%
+  dplyr::select(LoanStatus, LoanOriginationDate, Term, TimeUntilClosed, ListingCategory,
+         BorrowerRate, LoanCurrentDaysDelinquent, BorrowerState, Recommendations,
+         IsBorrowerHomeowner, StatedMonthlyIncome, CreditScore,
+         BankcardUtilization, CurrentDelinquencies, InquiriesLast6Months, DebtToIncomeRatio,
+         PublicRecordsLast10Years) %>%
+  arrange(LoanOriginationDate)
+
+# Check the data structure
+str(df)
+```
+
+# Univariate Plots Section
+### Summary:
+```{r echo=FALSE, message=FALSE, warning=FALSE, Summary}
+# Isolate features for simplified analysis
+summary(df)
+```
+Most of the loans are current or paid. Most of the loans are used for Debt consolidation. The average interest rate for loans is 19%. California has, by far,  the most loans. About half of borrowers are homeowners. The median monthly income of borrowers is $4,667. The max monthly income is $1,750,003. The average credit score of borrowers is 695.
+
+### Loan Profile Variables:
+```{r echo=FALSE, message=FALSE, warning=FALSE, LoanStatus}
+ggplot(aes(x = LoanStatus), data = df) +
+  geom_bar() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ggtitle("Loans by Loan Status")
+
+summary(df$LoanStatus)
+```
+
+The majority of loans are current or paid. I wonder how other factors will affect the status of the loans. I will explore this further in later sections.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, LoanOriginationDate}
+df <- mutate(df, LoanOriginationDate.year = year(LoanOriginationDate))
+
+ggplot(aes(x = LoanOriginationDate.year), data = df) +
+  geom_histogram(binwidth = 1) +
+  scale_x_continuous(breaks = seq(2005, 2014, 1)) +
+  ggtitle("Loan Originations by Year")
+
+table(df$LoanOriginationDate.year)
+
+#create buckets for later analysis
+df$LoanOriginationDate.year.bucket <- cut(df$LoanOriginationDate.year,
+                                          breaks = c(2005, 2007, 2009, 2011, 2014))
+
+```
+
+Loan originations dropped off dramatically in 2009. This corresponds with the great recession and makes sense intuitively. Upon further investigation, the spike in 2013 corresponds to [press releases](https://www.prosper.com/about-us/2013/04/30/prosper-reports-record-month-in-april/) about the lending industry as a whole experiencing a spike in demand. This could be caused by increased institutional activity in the space.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Term}
+ggplot(aes(x = Term), data = df) +
+  geom_bar() +
+  ggtitle("Loans by Term")
+
+table(df$Term)
+```
+
+The majority of loan terms are 36 months. 12 month terms are the least frequent, which makes sense since Prosper stopped offering 12 month loans.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, TimeUntilClosed}
+ggplot(aes(x = TimeUntilClosed), data = subset(df, !is.na(TimeUntilClosed))) +
+  geom_histogram(binwidth = 1) +
+  scale_x_continuous(limits = c(0,65)) +
+  ggtitle("Loans by Time Until Closed")
+```
+
+Loan terms for Prosper consisted of 12, 36, and 60 month terms. This makes the two peaks at 12 and 36 make sense. There was one data point that had a negative time. This appears to be a data entry mistake. The lack of loans making it to the full 60 month term suggests to me that a lot of loans are either prepayed or go into default before 5 years passes.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, ListingCategory}
+ggplot(aes(x = ListingCategory), data = df) +
+  geom_bar() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  ggtitle("Loans by Category")
+```
+
+The most loans are used for debt consolidation and the least loans are used to purchase RVs. There is also a large number of loans that are not identified.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, BorrowerRate}
+ggplot(aes(x = BorrowerRate), data = df) +
+  geom_histogram(binwidth = .005) +
+  ggtitle("Loans by Borrower Rate")
+
+table(df$BorrowerRate == 0)
+
+#create buckets for later analysis
+df$BorrowerRate.bucket <- cut(df$BorrowerRate, breaks = c(.00, .10, .20, .30, .40, .50))
+```
+
+The borrower rate is normally distributed with some significant outliers. Between .30 and .35, there is a large spike in loan count. This will need a closer look in later sections.
+
+There are also 8 instances where the rate is 0 which can be seen in the table under the true value. Upon futher investigation, the APR for these loans is still positive.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, LoanCurrentDaysDelinquent}
+ggplot(aes(x = LoanCurrentDaysDelinquent), data = df) +
+  geom_freqpoly() +
+  ggtitle("Loans by Days Delinquent")
+
+ggplot(aes(x = LoanCurrentDaysDelinquent),
+       data = subset(df, df$LoanCurrentDaysDelinquent != 0)) +
+  geom_freqpoly() +
+  ggtitle("Loans by Days Delinquent Ex. 0")
+
+summary(df$LoanCurrentDaysDelinquent)
+```
+
+When loans that aren't delinquent are excluded, a bimodal distribution is formed. This may be because after being delinquent for a certain amount of days, you are more likely to never pay. This would explain the second peak in the data. This could also simple match the volume of loans over time. This will need further analysis in later sections.
+
+###Borrower Profile Variables:
+```{r echo=FALSE, message=FALSE, warning=FALSE, BorrowerState}
+ggplot(aes(x = BorrowerState), data = df) +
+  geom_bar() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  ggtitle("Loans by State")
+
+summary(df$BorrowerState)
+```
+
+California, Florida, New York and Texas have the most number of borrowers. North Dakota has the least. This could simply be a function of state population. I would like to do futher analysis of loan characteristics by states in later sections.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Recommendations}
+ggplot(aes(x = Recommendations), data = df) +
+  geom_histogram() +
+  ggtitle("Loans by Recommendations")
+
+summary(df$Recommendations)
+
+df <- dplyr::select(df, -Recommendations)
+```
+
+More than 75% of the borrowers do not have a recommendation. I concluded that this variable won't be useful in my exploration and have thus removed it from the data set.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, IsBorrowerHomeowner}
+ggplot(aes(x = IsBorrowerHomeowner), data = df) +
+  geom_bar() +
+  ggtitle("Loans by if Homeowner")
+
+summary(df$IsBorrowerHomeowner)
+```
+
+About an even number of borrowers are homeowners and non homeowners. The true value in the table represents homeowners and there are 57476 of them.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, StatedMonthlyIncome}
+ggplot(aes(x = StatedMonthlyIncome), data = df) +
+  geom_histogram() +
+  scale_x_continuous(lim = c(0, quantile(df$StatedMonthlyIncome, .95))) +
+  ggtitle("Loans by Monthly Income")
+
+summary(df$StatedMonthlyIncome)
+
+#create buckets for later analysis
+df$StatedMonthlyIncome.bucket <- cut(df$StatedMonthlyIncome,
+                                          breaks = c(0, 1000, 2000, 3000, 4000, 5000, 6000, 1750000))
+```
+
+The long tailed, positively skewed distribution seems to be affected by large outliers in the data. To adjust for this, I have limited the selection by eliminating the top 5% of data points. This results in a nice normal distribution that has a slight positive skew. I wonder if the large incomes that I have discarded are cases where people lied about their income, or if multimillionairs actually use prosper for loans. I'm leaning towards the former.
+
+### Credit Profile Variables:
+```{r echo=FALSE, message=FALSE, warning=FALSE, CreditScore}
+ggplot(aes(x = CreditScore), data = df) +
+  geom_histogram(binwidth = 10) +
+  ggtitle("Loans by Credit Score")
+
+#create buckets for later analysis
+df$CreditScore.bucket <- cut(df$CreditScore, breaks = c(0, 500, 600, 700, 800, 900))
+```
+
+The distribution of credit scores is normally distributed with some gaps in the data. The gaps could be explained by prosper using common intervals for their reporting. There are also some outlier 0 values. I don't believe anyone actually has a 0 credit score, so this will require further investigation.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Zero_Value_Score}
+table(df$CreditScore)
+by(df$LoanStatus, df$CreditScore < 100, summary)
+```
+
+The table shows that no borrower has a credit score of 0. The lowest is 10, which occurs 133 times. Prosper now requires a minimum credit score in the 600s. Initially, however, subprime borrowers could apply for loans. This would explain the low credit scores from before 2008.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Zero_Value_Score_cont}
+by(df$LoanStatus, df$CreditScore < 100, summary)
+```
+
+Also, when the data is subsetted for scores below and above 100, it appears that a greater ratio of the lower credit score loans defaulted. 94 out of the 133 are defaulted or chargedoff.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, BankcardUtilization}
+ggplot(aes(x = BankcardUtilization), data = df) +
+  geom_histogram(binwidth = .01) +
+  coord_cartesian(xlim = c(0,2)) +
+  ggtitle("Loans by Card Utilization")
+
+summary(df$BankcardUtilization)
+
+#create buckets for later analysis
+df$BankcardUtilization.bucket <- cut(df$BankcardUtilization,
+                                     breaks = c(0, .10, .30, .60, .80, 1, 6))
+```
+
+Bank card utilization has two peaks. Interestingly, one peak is at 0 and the other is close to 1. There are also a number of loans that exceed 100% utilization, meaning they owe more then their credit card limits. This makes sense considering most of the loans are used for debt consolidation.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, CurrentDelinquencies}
+ggplot(aes(x = CurrentDelinquencies), data = df) +
+  geom_histogram(binwidth = 1) +
+  coord_cartesian(xlim = c(0, quantile(df$CurrentDelinquencies, .99, na.rm = TRUE))) +
+  ggtitle("Loans by Delinquencies")
+
+summary(df$CurrentDelinquencies)
+
+#create buckets for later analysis
+df$CurrentDelinquencies.bucket <- cut(df$CurrentDelinquencies,
+                                     breaks = c(0, 1, 2, 4, 8, 16, 34, 85))
+```
+
+Current delinquencies are positively skewed. 75% of loans have no current delinquencies. The max number of delinquencies are 83.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, InquiriesLast6Months}
+ggplot(aes(x = InquiriesLast6Months), data = df) +
+  geom_histogram(binwidth = 1) +
+  coord_cartesian(xlim = c(0, quantile(df$InquiriesLast6Months, .99, na.rm = TRUE))) +
+  ggtitle("Loans by Inquires")
+
+summary(df$InquiriesLast6Months)
+
+#create buckets for later analysis
+df$InquiriesLast6Months.bucket <- cut(df$InquiriesLast6Months,
+                                     breaks = c(0, 1, 2, 3, 6, 12, 24, 50, 105))
+```
+
+Inquires over the previous 6 months show the same skewed distribution as current delinquencies.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, DebtToIncomeRatio}
+ggplot(aes(x = DebtToIncomeRatio), data = df) +
+  geom_histogram(binwidth = .01) +
+  scale_x_continuous(limit = c(0, 1)) +
+  ggtitle("Loans by Debt to Income Ratio")
+
+summary(df$DebtToIncomeRatio)
+
+#create buckets for later analysis
+df$DebtToIncomeRatio.bucket <- cut(df$DebtToIncomeRatio,
+                                     breaks = c(0, .1, .2, .4, .6, .8, 1, 11))
+```
+
+The debt to income ratio is positively skewed with a max of 1000% and a median of 22%.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, PublicRecordsLast10Years}
+ggplot(aes(x = PublicRecordsLast10Years), data = df) +
+  geom_histogram(binwidth = 1) +
+  coord_cartesian(xlim = c(0, 5)) +
+  ggtitle("Loans by Public Records")
+
+summary(df$PublicRecordsLast10Years)
+```
+
+Public records over the previous 10 years show the same skewed distribution as current delinquencies and inquiries.
+
+### Variables Subsetted by Loan Status:
+```{r echo=FALSE, message=FALSE, warning=FALSE, Current_or_paid}
+CurrentPaid <- subset(df, df$LoanStatus == "Current or Paid")
+DefaultCharged <- subset(df, df$LoanStatus == "Defaulted or Chargedoff")
+
+summary(CurrentPaid[1:16])
+summary(DefaultCharged[1:16])
+```
+
+Current or paid loan's mean origination date is 2011. Defaulted or charged off loan's mean origination date is 2009. Current or paid loan's are more likely to be homeowners than defaulted or charged off loans. Average credit scores are 703 vs 650. These diffrences might prove useful in futher analyzing the data.
+
+# Univariate Analysis
+
+### What is the structure of your dataset?
+The Prosper Loan dataset contains 81 variables on about 113937 loans made through the prosper.com marketplace. I have further reduced the number of variables to 16 core features and 10 transformations of those features. Variables are of classes int, numeric, date, and factor.
+
+### What is/are the main feature(s) of interest in your dataset?
+LoanStatus, LoanOriginationDate, ClosedDate, and BorrowerRate seem to have the most promise for further exploration. I'd like to determine which features are best for predicting the borrower rate on a loan, the time until a loan is closed, and whether  or not a loan will go into default. 
+
+### What other features in the dataset do you think will help support your investigation into your feature(s) of interest?
+ListingCategory, LoanCurrentDaysDelinquent, IsBorrowerHomeowner, StatedMonthlyIncome, BankcardUtilization, CurrentDelinquencies, DebtToIncomeRatio, PublicRecordsLast10Years, and InquiriesLast6Months all seem like good places to start when expanding my investigation.
+
+### Did you create any new variables from existing variables in the dataset?
+Yes. I created CreditScore which averages the scores of the upper and lower range provided. I created a LoanOriginationDate.year variable to isolate the year. I created TimeUntilClosed to find the amount of time in months that passed between origination and closing for loans that have closed. I also created a number of bucket variables that I feel will come in useful for multivariate Analysis.
+
+### Of the features you investigated, were there any unusual distributions? Did you perform any operations on the data to tidy, adjust, or change the form of the data? If so, why did you do this?
+StatedMonthlyIncome had a very long tail that included values that don't make sense given size of loans from prosper. Aside from creating new variables, I also reclassified existing variables as factor or date classes where needed.
+
+
+# Bivariate Plots Section
+```{r echo=FALSE, message=FALSE, warning=FALSE, Correlation_Matrix}
+set.seed(10)
+pairs.panels(sample_n(df[1:17], 2000), pch=".", gap = 0)
+```
+
+This correlation matrix gives a broad overview of feature interactions. Some interesting relationships for further anaysis are as follows:
+* BorrowerRate vs LoanStatus, CreditScore, BankcardUtilization
+* TimeUntilClosed vs LoanOriginationDate.year, Term, Listing Category, BorrowerRate, CreditScore
+* LoanStatus vs LoanOriginationDate.year, BorrowerRate, LoanCurrentDaysDelinquent, CreditScore, CurrentDelinquencies, InquiriesLast6Months
+
+### BorrowerRate Exploration
+```{r echo=FALSE, message=FALSE, warning=FALSE, BorrowerRate_vs_LoanStatus}
+ggplot(aes(x = LoanStatus, y = BorrowerRate), data = df) +
+  geom_boxplot() +
+  coord_cartesian(ylim = c(.10, .35)) +
+  ggtitle("Borrower Rates by Loan Status")
+```
+
+The median borrower rate for current or paid loans is significantly lower than other loan types. This could be because it is easier to service loans with lower interest rates. It could also be because lower interest rates are given to people most likely to make payments.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, BorrowerRate_vs_CreditScore}
+ggplot(aes(x = CreditScore.bucket, y = BorrowerRate), data = df) +
+  geom_boxplot() +
+  ggtitle("Borrower Rates by Credit Score Range")
+
+ggplot(aes(x = CreditScore, y = BorrowerRate),
+       data = subset(df, CreditScore > 400 & !is.na(CreditScore))) +
+  geom_jitter(alpha = .01) +
+  geom_smooth() +
+  ggtitle("Borrower Rates by Credit Score")
+```
+
+As expected, the interest rate borrowers are charged is inversely related to their credit score. However, there remains a large dispersion of outliers at ever range of credit scores.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, BorrowerRate_vs_BankcardUtilization}
+ggplot(aes(x = BankcardUtilization.bucket, y = BorrowerRate), data = df) +
+  geom_boxplot() +
+  ggtitle("Borrower Rates by Card Utilization Range")
+
+ggplot(aes(x = BankcardUtilization, y = BorrowerRate),
+       data = subset(df, BankcardUtilization < 2 & !is.na(BankcardUtilization))) +
+  geom_jitter(alpha = .01) +
+  geom_smooth() +
+  ggtitle("Borrower Rates by Card utilization")
+```
+
+When grouped into buckets, an expected relationship between interest rates and credit utilization emerges. However, when every point is plotted, no solid relationship exists.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, BorrowerRate_vs_Other}
+p1 <- ggplot(aes(x = StatedMonthlyIncome.bucket, y = BorrowerRate), data = df) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  geom_boxplot()
+
+p2 <- ggplot(aes(x = CurrentDelinquencies.bucket, y = BorrowerRate), data = df) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  geom_boxplot()
+
+p3 <- ggplot(aes(x = InquiriesLast6Months.bucket, y = BorrowerRate), data = df) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  geom_boxplot()
+
+p4 <- ggplot(aes(x = DebtToIncomeRatio.bucket, y = BorrowerRate), data = df) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  geom_boxplot()
+
+grid.arrange(p1, p2, p3, p4)
+
+p1 <- ggplot(aes(x = Term, y = BorrowerRate), data = df) +
+  geom_boxplot()
+
+p2 <- ggplot(aes(x = IsBorrowerHomeowner, y = BorrowerRate), data = df) +
+  geom_boxplot()
+
+grid.arrange(p1, p2, ncol = 2)
+```
+
+Many of the other credit factors show similar relationships as credit score. This is most likely because credit score is a function of the other credit factors. Term and homeownership also seem to have a slight relationship with BorrowerRate. In summary, the worse your credit factors, the more interest a loan is going to cost you. The longer the loan duration, the more interest a loan is going to cost you. If you are a homeowner you will probably be charged less interest on a loan.
+
+### TimeUntilClosed Exploration
+```{r echo=FALSE, message=FALSE, warning=FALSE, TimeUntilClosed_vs_Term_year}
+p1 <- ggplot(aes(x = LoanOriginationDate.year.bucket, y = TimeUntilClosed),
+             data = subset(df, TimeUntilClosed > 0 & !is.na(TimeUntilClosed))) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  geom_boxplot()
+
+p2 <- ggplot(aes(x = Term, y = TimeUntilClosed),
+             data = subset(df, TimeUntilClosed > 0 & !is.na(TimeUntilClosed))) +
+  geom_boxplot()
+
+grid.arrange(p1, p2, ncol = 2)
+```
+
+What stands out to me here is that loans with term 60 actually close at a faster rate than loans with term 36. This is not intuitive, as I thought loans with longer terms would close on average over longer times. I will analyze this further in later sections.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, TimeUntilClosed_vs_Category}
+ggplot(aes(x = ListingCategory, y = TimeUntilClosed),
+             data = subset(df, TimeUntilClosed > 0 & !is.na(TimeUntilClosed))) +
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  ggtitle("Time Until Closed by Category")
+  
+```
+
+Personal loans and student loans appear to take the longest to close. This makes some sense, as people tend to give the lowest priority to student loans and credit cards.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, TimeUntilClosed_vs_Rate_Score}
+p1 <- ggplot(aes(x = BorrowerRate.bucket, y = TimeUntilClosed),
+             data = subset(df, TimeUntilClosed > 0 & !is.na(TimeUntilClosed))) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  geom_boxplot()
+
+p2 <- ggplot(aes(x = CreditScore.bucket, y = TimeUntilClosed),
+             data = subset(df, TimeUntilClosed > 0 & !is.na(TimeUntilClosed))) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  geom_boxplot()
+
+grid.arrange(p1, p2, ncol = 2)
+```
+
+High rates and high credit scores tend to correspond with quicker closing times. This makes sense as you would want to prepay a loan with a high rate. There is also a spike in the speed it takes to close loans of really low rates and credit scores. This could be because low credit scores default faster and because low rates tend to be given for the lowest term loans.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Timeuntilclosed_vs_Other}
+p1 <- ggplot(aes(x = StatedMonthlyIncome.bucket, y = TimeUntilClosed),
+             data = subset(df, TimeUntilClosed > 0 & !is.na(TimeUntilClosed))) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  geom_boxplot()
+
+p2 <- ggplot(aes(x = CurrentDelinquencies.bucket, y = TimeUntilClosed),
+             data = subset(df, TimeUntilClosed > 0 & !is.na(TimeUntilClosed))) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  geom_boxplot()
+
+p3 <- ggplot(aes(x = InquiriesLast6Months.bucket, y = TimeUntilClosed),
+             data = subset(df, TimeUntilClosed > 0 & !is.na(TimeUntilClosed))) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  geom_boxplot()
+
+p4 <- ggplot(aes(x = DebtToIncomeRatio.bucket, y = TimeUntilClosed),
+             data = subset(df, TimeUntilClosed > 0 & !is.na(TimeUntilClosed))) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  geom_boxplot()
+
+grid.arrange(p1, p2, p3, p4)
+```
+
+Most of this isn't interesting, however, having more inquires over the past 6 months tends to mean a quicker time until the loan is closed. Since loans might be closed for conflicting reasons, prepaid vs default, it might turn out to be difficult to model this aspect without breaking out the reasons for the loan being closed. This could be done by sub setting by loan status.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Timeuntilclosed_subset}
+by(df$TimeUntilClosed, df$LoanStatus, summary)
+```
+
+In later sections, it will probably make more sense to predict the time until closed for loans that are defaulted or chargedoff. I will only be interested predicting when a loan will be closed if it goes into default.
+
+### LoanStatus Exploration
+```{r echo=FALSE, message=FALSE, warning=FALSE, LoanStatus_vs_Year_Rate_Delinquent}
+p1 <- ggplot(aes(x = LoanStatus, y = LoanOriginationDate), data = df) +
+  geom_boxplot()
+
+p2 <- ggplot(aes(x = LoanStatus, y = BorrowerRate), data = df) +
+  geom_boxplot()
+
+p3 <- ggplot(aes(x = LoanStatus, y = LoanCurrentDaysDelinquent), data = df) +
+  geom_boxplot()
+
+grid.arrange(p1, p2, p3)
+```
+
+Of these features, the loan origination date appears to be the best predictor of whether a loan is current or in default.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, LoanStatus_vs_Score_Delinq_Inquires}
+p1 <- ggplot(aes(x = LoanStatus, y = CreditScore), data = df) +
+  coord_cartesian(ylim = c(590, 800)) +
+  geom_boxplot()
+
+p2 <- ggplot(aes(x = LoanStatus, y = InquiriesLast6Months), data = df) +
+  coord_cartesian(ylim = c(0, 6)) +
+  geom_boxplot()
+
+grid.arrange(p1, p2)
+```
+
+Of these features, credit score appears to be the best predictor of whether a loan is current or in default.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, LoanStatus_vs_Other}
+p1 <- ggplot(aes(x = LoanStatus, y = StatedMonthlyIncome),
+             data = subset(df, StatedMonthlyIncome < 10000)) +
+  geom_boxplot()
+
+p2 <- ggplot(aes(x = LoanStatus, y = InquiriesLast6Months),
+             data = subset(df, InquiriesLast6Months < 10)) +
+  coord_cartesian(ylim = c(0, 5)) +
+  geom_boxplot()
+
+p3 <- ggplot(aes(x = LoanStatus, y = DebtToIncomeRatio),
+             data = subset(df, DebtToIncomeRatio < 1.5)) +
+  coord_cartesian(ylim = c(0, .75)) +
+  geom_boxplot()
+
+grid.arrange(p1, p2, p3)
+```
+
+Of these features, stated monthly income is the only one that shows promise for further exploration.
+
+### Other Exploration
+```{r echo=FALSE, message=FALSE, warning=FALSE, Other_vs_other}
+p1 <- ggplot(aes(x = CreditScore.bucket, y = StatedMonthlyIncome),
+             data = subset(df, StatedMonthlyIncome < 10000)) +
+  ylab("MonthlyIncome") +
+  geom_boxplot()
+
+p2 <- ggplot(aes(x = CurrentDelinquencies.bucket, y = LoanCurrentDaysDelinquent),
+             data = df) +
+  ylab("DaysDelinquent") +
+  geom_boxplot()
+
+p3 <- ggplot(aes(x = CurrentDelinquencies.bucket, y = LoanOriginationDate),
+             data = df) +
+  ylab("OriginationDate") +
+  geom_boxplot()
+
+grid.arrange(p1, p2, p3)
+```
+
+These plots explore some relationships that stood out. Credit score seems to be positively correlated with monthly income.The amount of delinquencies when the loan was originated seems to be correlated with the number of days a loan is currently delinquent. The date the loan was originated also seems to be correlated to the number of delinquencies the borrower had on their credit score. This could because of the overall economy.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Other_vs_other2}
+p1 <- ggplot(aes(x = BankcardUtilization, y = CreditScore),
+             data = df) +
+  geom_jitter(alpha = .01) +
+  coord_cartesian(xlim = c(0,1.5)) +
+  geom_smooth()
+
+p2 <- ggplot(aes(x = CurrentDelinquencies, y = CreditScore),
+             data = df) +
+  geom_jitter(alpha = .01) +
+  coord_cartesian(xlim = c(0,20)) +
+  geom_smooth()
+
+p3 <- ggplot(aes(x = InquiriesLast6Months, y = CreditScore),
+             data = df) +
+  geom_jitter(alpha = .01) +
+  coord_cartesian(xlim = c(0,20)) +
+  geom_smooth()
+
+grid.arrange(p1, p2, p3)
+```
+
+These plots show the relationship between CreditScore and other credit factors. As would be expected, credit factors tend to be correlated with credit score.
+
+# Bivariate Analysis
+
+### Talk about some of the relationships you observed in this part of the investigation. How did the feature(s) of interest vary with other features in the dataset?
+* BorrowerRate is related to CreditScore, BankCardUtilization, and IsBorrowerHomeowner.
+* TimeUntilClosed is related to LoanOriginationDate, BorrowerRate, ListingCategory, and Term.
+* Loan Status is related to LoanOriginationDate, BorrowerRate, and Credit Score and Term. 
+
+### Did you observe any interesting relationships between the other features (not the main feature(s) of interest)?
+* Creditscore is positively related to StatedMonthlyIncome.
+* LoanOriginationDate is related to CurrentDelinquencies. This could be because of the change in the overall health of the economy over time.
+*LoanCurrentDaysDelinquent is related to CurrentDelinquencies at the time of loan origination.
+* CreditScore is related to all other credit factors, as would be expected.
+
+### What was the strongest relationship you found?
+The strongest relationship found is between LoanStatus and LoanCurrentDaysDelinquent. The correlation was -.766 and it is both obvious and meaningless in relation to the broader analysis of this data.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Answer}
+with(df, cor.test(as.numeric(LoanStatus), LoanCurrentDaysDelinquent))
+```
+
+# Multivariate Plots Section
+### BorrowerRate Exploration
+```{r echo=FALSE, message=FALSE, warning=FALSE, Multivariate_BorrowerRate_Hist}
+p1 <- ggplot(aes(x = BorrowerRate),
+       data = subset(df, BorrowerRate > 0)) +
+  geom_histogram(aes(fill = Term), binwidth = 0.01) +
+  scale_fill_brewer(guide = guide_legend(title = 'Term',
+                         override.aes = list(alpha = 1, size = 2))) +
+  scale_x_continuous(limits = c(0, .40))
+
+p2 <- ggplot(aes(x = BorrowerRate),
+       data = subset(df, BorrowerRate > 0)) +
+  geom_histogram(aes(fill = IsBorrowerHomeowner), binwidth = 0.01) +
+  scale_fill_brewer(guide = guide_legend(title = 'Homeowner',
+                         override.aes = list(alpha = 1, size = 1))) +
+  scale_x_continuous(limits = c(0, .40))
+
+p3 <- ggplot(aes(x = BorrowerRate),
+       data = subset(df, BorrowerRate > 0)) +
+  geom_histogram(aes(fill = StatedMonthlyIncome.bucket), binwidth = 0.01) +
+  scale_fill_brewer(guide = guide_legend(title = 'MonthlyIncome',
+                         override.aes = list(alpha = 1, size = 2))) +
+  scale_x_continuous(limits = c(0, .40))
+
+p4 <- ggplot(aes(x = BorrowerRate),
+       data = subset(df, BorrowerRate > 0)) +
+  geom_histogram(aes(fill = LoanOriginationDate.year.bucket), binwidth = 0.01) +
+  scale_fill_brewer(guide = guide_legend(title = 'OriginationDate',
+                         override.aes = list(alpha = 1, size = 2))) +
+  scale_x_continuous(limits = c(0, .40))
+
+grid.arrange(p1,p2, p3, p4, ncol = 1)
+```
+
+I wanted to isolate the spike in BorrowerRates that was discovered earlier. I started with this group of histograms to get a bigger picture view of the distribution. Term and LoanOriginationDate both stand out and will be investigated further in the following plot.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Multivariate_BorrowerRate_Hist2}
+ggplot(aes(x = BorrowerRate),
+       data = subset(df, BorrowerRate > 0)) +
+  geom_histogram(aes(fill = Term), binwidth = 0.01) +
+  facet_wrap(~LoanOriginationDate.year) +
+  scale_x_continuous(limits = c(0, .40)) +
+  ggtitle("Loans by BorrowerRate and Term")
+```
+
+The large spike in loans with a BorrowerRate of around 32%, that was discovered earlier, seems to be explained by a large surge of 36 month loans in 2012.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Multivariate_BorrowerRate}
+ggplot(aes(x = CreditScore, y = BorrowerRate, color = BankcardUtilization.bucket),
+       data = subset(df, CreditScore >= 640)) +
+  geom_point(position = 'jitter') +
+  scale_color_brewer(type = 'seq', palette = 2) +
+  facet_wrap(~LoanOriginationDate.year) +
+  geom_smooth(method = "lm", se=FALSE, color="black", formula = y ~ x) +
+  ggtitle("Rate by CreditScore and Utilization")
+```
+
+The disperson of BorrowerRates across CreditScore and BankcardUtilization larger than I would have hoped. This will add difficulty in building my model. It is interesting that some years have more disperson than others. It is possible that credit standards fluctuate between years. Sometimes accepting everyone and sometimes being picky.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Multivariate_BorrowerRate2}
+ggplot(aes(x = CreditScore, y = BorrowerRate, color = IsBorrowerHomeowner),
+       data = subset(df, CreditScore >= 640)) +
+  geom_point(position = 'jitter') +
+  scale_color_brewer(type = 'qual', palette = 2) +
+  facet_wrap(~LoanOriginationDate.year.bucket) +
+  geom_smooth(method = "lm", se=FALSE, color="black", formula = y ~ x) +
+  ggtitle("Rate by CreditScore and Homeownership")
+```
+
+Adding homeownership to the plot does not create a clearer picture. It does not seem that BorrowerRate is dependent on whether one owns a home.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, BorrowerRate_Linear_Model}
+m1 <- lm(BorrowerRate ~ CreditScore, data = subset(df, CreditScore >= 640))
+m2 <- update(m1, ~ . + BankcardUtilization)
+m3 <- update(m2, ~ . + IsBorrowerHomeowner)
+m4 <- update(m3, ~ . + Term)
+m5 <- update(m4, ~ . + LoanOriginationDate)
+mtable(m1, m2, m3, m4, m5)
+```
+
+My R-squared is .2, suggesting that only 20% of the variance in the BorrowerRate can be explained by these features. I can conclude that this model has little predictive power. 
+
+### TimeUntilClosed Exploration
+```{r echo=FALSE, message=FALSE, warning=FALSE, Multivariate_TimeUntilClosed}
+#Subset for only loans that went into default
+df1 <- subset(df, LoanStatus == "Defaulted or Chargedoff" &
+                TimeUntilClosed > 0 &
+                !is.na(TimeUntilClosed) &
+                CreditScore > 640)
+
+df2 <- subset(df, LoanStatus == "Current or Paid" &
+                TimeUntilClosed > 0 &
+                !is.na(TimeUntilClosed) &
+                CreditScore > 640)
+
+p1 <- ggplot(aes(x = BorrowerRate, y = TimeUntilClosed, color = LoanOriginationDate.year.bucket),
+       data = df1) +
+  geom_point(position = 'jitter') +
+  scale_color_brewer(type = 'seq', palette = 3) +
+  geom_smooth(method = "lm", se=FALSE, color="black", formula = y ~ x) +
+  ggtitle("TimeUntilClosed by Year and Rate (Default)")
+
+p2 <- ggplot(aes(x = BorrowerRate, y = TimeUntilClosed, color = LoanOriginationDate.year.bucket),
+       data = df2) +
+  geom_point(position = 'jitter') +
+  scale_color_brewer(type = 'seq', palette = 3) +
+  geom_smooth(method = "lm", se=FALSE, color="black", formula = y ~ x) +
+  ggtitle("TimeUntilClosed by Year and Rate (Paid)")
+
+grid.arrange(p1,p2, ncol = 1)
+```
+
+These plots show TimeUntilClosed, subsetted by loan status, vs BorrowerRate and Year. No strong relationship was found between TimeUntilClosed and BorrowerRate. Loans that were originated more recently tend to close faster, but that is intuitive.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, TimeUntilClosed_Linear_Model}
+m1 <- lm(TimeUntilClosed ~ BorrowerRate, data = df1)
+m2 <- update(m1, ~ . + Term)
+m3 <- update(m2, ~ . + CreditScore)
+m4 <- update(m3, ~ . + IsBorrowerHomeowner)
+m5 <- update(m4, ~ . + LoanOriginationDate)
+mtable(m1, m2, m3, m4, m5)
+```
+
+My R-squared is .1, suggesting that only 10% of the variance in the TimeUntilClosed can be explained by these features. I can conclude that this model has little predictive power. 
+
+### LoanStatus Exploration
+```{r echo=FALSE, message=FALSE, warning=FALSE, Multivariate_LoanStatus}
+#Create dummy Variable for Loan Status 0 = Current or Paid, 1 = Past due, Default, Or ChargedOff
+df <- mutate(df, LoanStatusDummy = ifelse(LoanStatus == "Current or Paid", 0, 1))
+df$LoanStatusDummy <- factor(df$LoanStatusDummy)
+
+p1 <- ggplot(aes(x = LoanOriginationDate, fill = StatedMonthlyIncome.bucket),
+       data = df) +
+  geom_histogram(binwidth = 10) +
+  facet_wrap(~LoanStatusDummy, scales = "free")
+
+p2 <- ggplot(aes(x = LoanOriginationDate, color = BorrowerRate.bucket),
+       data = df) +
+  geom_freqpoly(binwidth = 10) +
+  facet_wrap(~LoanStatusDummy, scales = "free")
+
+p3 <- ggplot(aes(x = CreditScore, fill = LoanOriginationDate.year.bucket),
+       data = df) +
+  geom_histogram(binwidth = 10) +
+  facet_wrap(~LoanStatusDummy, scales = "free")
+
+p4 <- ggplot(aes(x = BorrowerRate, color = CreditScore.bucket),
+       data = df) +
+  geom_freqpoly(binwidth = .01) +
+  facet_wrap(~LoanStatusDummy, scales = "free")
+
+grid.arrange(p1, p2, p3, p4, ncol = 1)
+```
+
+I started this exploration by looking at histogram distributions and hopeing to find a pattern. 0 Represents loans that are current or paid and 1 represents loans that are past due, defaulted, or chargedoff. A greater porportion of troubled loans have older origination dates, larger Borrower Rates, and more credit scores in the 500s.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Multivariate_LoanStatus2}
+ggplot(aes(x = LoanStatusDummy, y = CreditScore, color = BorrowerRate.bucket),
+       data = subset(df, CreditScore > 640)) +
+  geom_point(position = "jitter") +
+  facet_wrap(~LoanOriginationDate.year.bucket) +
+  scale_color_brewer(type = 'seq', palette = 1) +
+  ggtitle("LoanStatus by Credit Score and Rate")
+```
+
+This plot shows the diffrent buckets of credits scores and borrower rates for loans that are current or paid (0) and for loans that are past due, defaulted, or chargedoff (1). They are isolated by similar origination dates. The main thing that stands out is that extremely high credit scores rarely default. Also extremely low borrower rates rarely default.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, LoanStatus_Linear_Model}
+m1 <- glm(LoanStatusDummy ~ LoanOriginationDate,
+          data = df, family = "binomial")
+m2 <- update(m1, ~ . + BorrowerRate)
+m3 <- update(m2, ~ . + StatedMonthlyIncome.bucket)
+m4 <- update(m3, ~ . + CreditScore)
+mtable(m1, m2, m3, m4)
+```
+
+My Aldrich-Nelson R-sq. is only .2, suggesting that this model has little predictive power.  
+
+# Multivariate Analysis
+
+### Talk about some of the relationships you observed in this part of the investigation. Were there features that strengthened each other in terms of looking at your feature(s) of interest?
+
+When looking at BorrowerRate against CreditScore and BankcardUtilization, there is a slight relationship. Borrowers with high credit scores and low utilization tend to get the best rates. 
+
+TimeUntilClosed had very little relationship with the other features. LoanOrigination date had the strongest relationship with TimeUntilClosed, but that makes intuitive sense since older loans would experience greater passage of time.
+
+LoanStatus had very little relationship with the other features. Older loans were more likely to be in default than newer loans. Holding credit score constant, the higher the borrower rate, the more defaults.
+### Were there any interesting or surprising interactions between features?
+
+I expected loans with higher rates would be closed faster since people would want to refinance. This was not the case. I also expected the term of the loan would better predict the life of closed loans but it did not.
+
+### OPTIONAL: Did you create any models with your dataset? Discuss the strengths and limitations of your model.
+
+I did, but they all had very weak predictive power. The features I choose to explore might have hindered my results. A larger analysis of all 81 variables may prove more fruitful.
+
+------
+
+# Final Plots and Summary
+
+### Plot One
+```{r echo=FALSE, message=FALSE, warning=FALSE, Plot_One}
+ggplot(aes(x = CreditScore, y = BorrowerRate, color = BankcardUtilization.bucket),
+       data = subset(df, CreditScore >= 640)) +
+  geom_point(position = 'jitter') +
+  scale_color_brewer(type = 'seq', palette = 2) +
+  facet_wrap(~LoanOriginationDate.year) +
+  geom_smooth(method = "lm", se=FALSE, color="black", formula = y ~ x) +
+  ggtitle("BorrowerRate by CreditScore and BankCardUtilization")
+```
+
+### Description One
+
+In any given year, a high CreditScore and a low BankcardUtilization lead to a lower BorrowerRate. The effect is more dramatic in 2007-2009 and less dramatic in 2011-2013. This could represent a lowering of credit standards after the recession of 2009 and a shift to quantity over quality on the Prosper platform.
+
+### Plot Two
+```{r echo=FALSE, message=FALSE, warning=FALSE, Plot_Two}
+p1 <- ggplot(aes(x = BorrowerRate, y = TimeUntilClosed, color = LoanOriginationDate.year.bucket),
+       data = df1) +
+  geom_point(position = 'jitter') +
+  scale_color_brewer(type = 'seq', palette = 3) +
+  geom_smooth(method = "lm", se=FALSE, color="black", formula = y ~ x) +
+  ylab("TimeUntilClosed (Months)") +
+  scale_x_continuous(breaks = seq(0, .40, .05)) +
+  ggtitle("TimeUntilClosed by Rate and Year (Default)")
+
+p2 <- ggplot(aes(x = BorrowerRate, y = TimeUntilClosed, color = LoanOriginationDate.year.bucket),
+       data = df2) +
+  geom_point(position = 'jitter') +
+  scale_color_brewer(type = 'seq', palette = 3) +
+  geom_smooth(method = "lm", se=FALSE, color="black", formula = y ~ x) +
+  ylab("TimeUntilClosed (Months)") +
+  scale_x_continuous(breaks = seq(0, .40, .05)) +
+  ggtitle("TimeUntilClosed by Rate and Year (Paid)")
+
+grid.arrange(p1,p2, ncol = 1)
+```
+
+### Description Two
+
+I would have expected the rate on a loan to affect the time until that loan is closed. This plot shows that this is not that case. Over a wide variety of BorrowerRates, the time until a loan is closed, whether for default or because it is paid, remains diverse. The plot for loans that are paid also shows a bunching around 36 and 12 months. This makes sense since those correspond to the term of the loans at origination. The lack of 60 month closing times is probably a result of not enough time having passed since inception.
+
+### Plot Three
+```{r echo=FALSE, message=FALSE, warning=FALSE, Plot_Three}
+ggplot(aes(x = LoanStatus, y = CreditScore),
+       data = subset(df, CreditScore > 640)) +
+  geom_boxplot() +
+  ggtitle("LoanStatus by CreditScore")
+```
+
+### Description Three
+
+What stands out here is the lack of loans with extremely high CreditScores in the defaulted or charged off bin. However, when moving past those extremes, the dispersion of data doesn't reveal much other than that loans that are current or paid have higher median credit scores. The best insight to take away is that people with amazing credit scores will probably pay you in full, but after that it's less certain
+
+------
+
+# Reflection
+Coming into this project I expected to find numerous relationships between the Prosper loan data. I ended up finding very few powerful relationships. Of those, they were mainly obvious relationships like between credit score and other credit factors.
+
+I had an ambition goal, to predict the BorrowerRate, TimeUntilClosed, and LoanStatus of newly originated loans. This proved too difficult, as the relationships I found were quite weak. This might have been a byproduct of the features I chose to include in the data set. Originally there were 81 features and I whittled those down to less than 20.
+
+This was a humbling experience, and reminded me how hard data science can be. If it was easy, everyone would do it. Going forward, I plan on redoing my analysis with an even larger data set that includes even more features. I feel I have only cracked the surface of what these loan data sets hold.
+

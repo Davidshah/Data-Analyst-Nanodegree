@@ -1,0 +1,10 @@
+5. A text file containing a list of Web sites, books, forums, blog posts, github repositories etc that you referred to or used in this submission (Add N/A if you did not use such resources).
+
+* https://docs.google.com/document/d/1F0Vs14oNEs2idFJR3C_OPxwS6L0HPliOii-QpbmrMo4/pub?embedded=True
+* http://wiki.openstreetmap.org/wiki/Main_Page
+* https://docs.python.org/2/library/re.html
+* https://docs.mongodb.org/manual/indexes/
+* https://docs.mongodb.org/manual/reference/operator/aggregation/
+* https://docs.mongodb.org/manual/reference/operator/query/regex/
+* http://www.json.org/
+* http://wiki.openstreetmap.org/wiki/TIGER

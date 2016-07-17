@@ -1,0 +1,10 @@
+3. A text file containing a link to the map position you wrangled in your project, a short description of the area and a reason for your choice.
+
+Santa Barbara, CA, United States
+
+https://www.openstreetmap.org/way/33113642
+http://metro.teczno.com/#santa-barbara
+
+The reason I chose Santa Barbara as the location for my project is that it is currently number one on my list of areas to retire.
+Though retirement may still be decades off, it is always nice to dream.
+
