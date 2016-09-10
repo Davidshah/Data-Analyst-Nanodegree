@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <script src="http://d3js.org/d3.v3.min.js"></script>
+    <script src="http://dimplejs.org/dist/dimple.v2.0.0.min.js"></script>
+    <style>
+      h2 {
+        color: black;
+        text-align: center;
+      }
+
+      .svg-container {
+        display: inline-block;
+        position: relative;
+        width: 100%;
+        padding-bottom: 45%;
+        vertical-align: top;
+        overflow: visible;
+      }
+
+      .svg-content-responsive {
+        display: inline-block;
+        position: absolute;
+        top: 0;
+        left: 0;
+      }
+    </style>
+    <script type="text/javascript">
+      function draw(data) {
+
+      /*
+        D3.js setup code
+      */
+          "use strict";
+          var margin = 50,
+              width = window.innerWidth
+                      || document.documentElement.clientWidth
+                      || document.body.clientWidth,
+              height = window.innerHeight
+                      || document.documentElement.clientHeight
+                      || document.body.clientHeight;
+
+          var svg = d3.select("body")
+            .append("div")
+            .classed("svg-container", true)
+            .append("svg")
+              .attr("preserveAspectRatio", "xMinYMin meet")
+              .attr("viewBox", "0 0 " + width + " " + height)
+            .classed("svg-content-responsive", true)
+
+
+      /*
+        Dimple.js Chart construction code
+      */
+
+          var myChart = new dimple.chart(svg, data);
+          myChart.setBounds(80, "10%", "90%", "90%");
+          var xAxis = myChart.addCategoryAxis("x", ["Pclass","Sex"]);
+          var yAxis = myChart.addMeasureAxis("y", "SurvivalRate");
+          myChart.addSeries("Sex", dimple.plot.bar);
+          var myLegend = myChart.addLegend("1%", "13%", myChart._xPixels() + myChart._widthPixels() * .95, "20%", "right");
+          myLegend.fontSize = 15;
+          svg.append("text")
+            .attr("x", myChart._xPixels() + myChart._widthPixels() / 2)
+            .attr("y", myChart._yPixels() - 10)
+            .attr("text-anchor", "middle")
+            .style("font-size", "25px")
+            .style("font-weight", "bold")
+            .text("Survivor Rate by Class and Sex");
+          xAxis.title = "Passenger Class/Sex"
+          xAxis.fontSize = 15;
+          yAxis.fontSize = 15;
+          yAxis.showGridlines = false;
+          yAxis.tickFormat = ".0%";
+          myChart.draw();
+        };
+    </script>
+  </head>
+  <body>
+    <script type="text/javascript">
+      /*
+        Use D3 to load the CSV file
+        and pass the contents of it to the draw function
+      */
+      d3.csv("data/titanic_data_clean.csv", draw);
+    </script>
+  </body>
+</html>

@@ -1,0 +1,50 @@
+---
+title: "titanic_data_code"
+author: "David Shahrestani"
+date: "September 7, 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(dplyr)
+```
+
+## Data
+
+The Titanic Data set contains demographics and passenger information from the 2224 passengers and crew on board the Titanic. More information about the data set ![can be found here](https://www.kaggle.com/c/titanic).
+
+```{r titanic}
+df <- read.csv("titanic_data.csv")
+```
+
+## Clean data for visualization
+
+Code to create a dataset that contains sex, class, and percent survived.
+
+```{r clean, echo=FALSE}
+
+# Update dataframe with limited variables for analysis
+df <- df %>%
+  select(Pclass, Sex, Survived) %>%
+  group_by(Survived, Pclass, Sex) %>%
+  summarize(n=n())
+
+df2 <- df %>%
+  group_by(Sex, Pclass) %>%
+  mutate(SurvivalRate = n/sum(n))
+
+df3 <- df2 %>%
+  filter(Survived == 1) %>%
+  select(Pclass, Sex, SurvivalRate)
+```
+
+## Export Clean Data
+
+```{r export, echo=FALSE}
+
+# Export to csv
+write.csv(df3, file = "titanic_data_clean.csv")
+```
+
