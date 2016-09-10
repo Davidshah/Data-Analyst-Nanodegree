@@ -5,11 +5,9 @@
     <script src="http://d3js.org/d3.v3.min.js"></script>
     <script src="http://dimplejs.org/dist/dimple.v2.0.0.min.js"></script>
     <style>
-      h2 {
-        color: black;
-        text-align: center;
-      }
-
+      /*
+        Code to rescale graph with window
+      */
       .svg-container {
         display: inline-block;
         position: relative;
@@ -28,10 +26,9 @@
     </style>
     <script type="text/javascript">
       function draw(data) {
-
-      /*
-        D3.js setup code
-      */
+          /*
+            D3.js setup code
+          */
           "use strict";
           var margin = 50,
               width = window.innerWidth
@@ -49,11 +46,9 @@
               .attr("viewBox", "0 0 " + width + " " + height)
             .classed("svg-content-responsive", true)
 
-
-      /*
-        Dimple.js Chart construction code
-      */
-
+          /*
+            Dimple.js Chart construction code
+          */
           var myChart = new dimple.chart(svg, data);
           myChart.setBounds(80, "10%", "90%", "90%");
           var xAxis = myChart.addCategoryAxis("x", ["Pclass","Sex"]);

@@ -1,10 +1,10 @@
 # Data Visualization: Titanic Survival Data
 
 ### Summary
-On April 15, 1912, the ![RMS Titanic](https://en.wikipedia.org/wiki/RMS_Titanic) collided with an iceberg and sank in the North Atlantic Ocean. Of the 2,224 passengers and crew aboard, less than 725 survived. This project will graphically portray the different survival chances based on gender and class. Females clearly have a higher survival rate than males and higher classes have a higher survival rate than lower classes.
+On April 15, 1912, the ![RMS Titanic](https://en.wikipedia.org/wiki/RMS_Titanic) collided with an iceberg and sank in the North Atlantic Ocean. Of the 2,224 passengers and crew aboard, less than 725 survived. This project will graphically portray the different survival chances of passengers based on gender and class. Females clearly have a higher survival rate than males, and first class passengers clearly have a higher survival rate than second and third class passengers.
 
 ### Design
-v1. A simple bar chart used to show the survival rates of passengers (calculated in R) categorized by class and sex. A bar chart was selected for its efficiency is displaying categorical data. Class data is encoded along the X axis and Sex data is encoded through color.
+v1. A simple bar chart used to show the survival rates of passengers (calculated in R) categorized by class and sex. A bar chart was selected for its efficiency at displaying categorical data. Class data is encoded along the X axis and Sex data is encoded through color. Survival rates are encoded along the Y axis. A legend is displayed in the top right corner of the graph for easy viewing.
 
 v2. Axis labels clarified. Y axis modified to display % instead decimal. Tooltip corrected to accurately display survival rates.
 
@@ -29,3 +29,4 @@ Feedback three:
 * https://github.com/PMSI-AlignAlytics/dimple/wiki/dimple.legend
 * http://stackoverflow.com/questions/10201841/display-y-axis-as-percentages
 * http://stackoverflow.com/questions/3437786/get-the-size-of-the-screen-current-web-page-and-browser-window
+* http://stackoverflow.com/questions/16265123/resize-svg-when-window-is-resized-in-d3-js

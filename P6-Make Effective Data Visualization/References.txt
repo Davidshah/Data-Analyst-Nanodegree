@@ -4,3 +4,4 @@ http://dimplejs.org/advanced_examples_viewer.html?id=advanced_custom_styling
 https://github.com/PMSI-AlignAlytics/dimple/wiki/dimple.legend
 http://stackoverflow.com/questions/10201841/display-y-axis-as-percentages
 http://stackoverflow.com/questions/3437786/get-the-size-of-the-screen-current-web-page-and-browser-window
+http://stackoverflow.com/questions/16265123/resize-svg-when-window-is-resized-in-d3-js
