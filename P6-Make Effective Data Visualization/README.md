@@ -5,8 +5,11 @@ On April 15, 1912, the ![RMS Titanic](https://en.wikipedia.org/wiki/RMS_Titanic)
 
 ### Design
 v1. A simple bar chart used to show the survival rates of passengers (calculated in R) categorized by class and sex. A bar chart was selected for its efficiency is displaying categorical data. Class data is encoded along the X axis and Sex data is encoded through color.
+
 v2. Axis labels clarified. Y axis modified to display % instead decimal. Tooltip corrected to accurately display survival rates.
+
 v3. Gridlines removed in order to clean up the graphic.
+
 v4. Dimensions optimized in order to display graphic accurately across different window sizes.
 
 ### Feedback
@@ -20,9 +23,9 @@ Feedback three:
 > I think percentages would look better than decimals on the Y axis. The sizing of the graphic is all over the place, maybe there is an issue with your javascript. I do like how clear the findings are. The survival rate of women in first class is very surprising.
 
 ### Resources
-https://www.kaggle.com/c/titanic
-http://dimplejs.org/examples_index.html
-http://dimplejs.org/advanced_examples_viewer.html?id=advanced_custom_styling
-https://github.com/PMSI-AlignAlytics/dimple/wiki/dimple.legend
-http://stackoverflow.com/questions/10201841/display-y-axis-as-percentages
-http://stackoverflow.com/questions/3437786/get-the-size-of-the-screen-current-web-page-and-browser-window
+* https://www.kaggle.com/c/titanic
+* http://dimplejs.org/examples_index.html
+* http://dimplejs.org/advanced_examples_viewer.html?id=advanced_custom_styling
+* https://github.com/PMSI-AlignAlytics/dimple/wiki/dimple.legend
+* http://stackoverflow.com/questions/10201841/display-y-axis-as-percentages
+* http://stackoverflow.com/questions/3437786/get-the-size-of-the-screen-current-web-page-and-browser-window
