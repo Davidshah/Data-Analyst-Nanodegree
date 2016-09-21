@@ -1,3 +1,5 @@
+![Certificte](http://i.imgur.com/hLmSxSc.png)
+
 # Data Analyst Nanodegree
 
 ### About
@@ -6,7 +8,7 @@ This repository contains project work for Udacity's [Data Analyst Nanodegree](ht
 ### Projects:
 - **P1** - Test a Perceptual Phenomenon
 - **P2** - Analyzing the NYC Subway Dataset
-- **P3** - Data Wrangle OpenStreetMaps Data
+- **P3** - Wrangle OpenStreetMaps Data
 - **P4** - Explore and Summarize Data
 - **P5** - Identifying Fraud from Enron Email
 - **P6** - Make Effective Data Visualization

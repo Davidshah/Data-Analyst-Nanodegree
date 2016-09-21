@@ -1,0 +1,19 @@
+Unique cookies to view page per day:,40000
+"Unique cookies to click ""Start free trial"" per day:",3200
+Enrollments per day:,660
+"Click-through-probability on ""Start free trial"":",0.08
+"Probability of enrolling, given click:",0.20625
+"Probability of payment, given enroll:",0.53
+"Probability of payment, given click",0.1093125
+Sample Size,5000
+,
+,
+Gross Conversion Stdev,0.020230604
+Retention Stdev,0.054949012
+Net Conversion Stdev,0.015601545
+,
+Gross Conversion Sample Size,25835
+Net Conversion Sample Size,27413
+,
+Net Conversion Page Views,685325
+Days of traffic,17.133125
