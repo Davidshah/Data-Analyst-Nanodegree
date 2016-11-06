@@ -5,14 +5,14 @@ This project analyzes the NYC subway dataset in order to build models that predi
 
 ## Getting started
 Install required libraries and run NY_Subway.py:  
-`import datetime  
-import pandas  
-import pandasql  
-import csv  
-import time as t  
-import numpy as np  
-import matplotlib.pyplot as plt  
-import scipy  
-import scipy.stats  
-import statsmodels.api as sm  
-from ggplot import *`
+  import datetime  
+  import pandas  
+  import pandasql  
+  import csv  
+  import time as t  
+  import numpy as np  
+  import matplotlib.pyplot as plt  
+  import scipy  
+  import scipy.stats  
+  import statsmodels.api as sm  
+  from ggplot import *
