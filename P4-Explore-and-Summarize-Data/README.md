@@ -14,3 +14,18 @@ After completing the project, you will:
 * Learn how to quantify and visualize individual variables within a data set by using appropriate plots such as scatter plots, histograms, bar charts, and box plots
 * Explore variables to identify the most important variables and relationships within a data set before building predictive models; calculate correlations, and investigate conditional means
 * Learn powerful methods and visualizations for examining relationships among multiple variables, such as reshaping data frames and using aesthetics like color and shape to uncover more information
+
+## Getting Started
+Install required libraries and run P4_Explore_And_Summarize_data.Rmd:  
+```
+library(ggplot2)
+library(gridExtra)
+library(dplyr)
+library(scales)
+library(memisc)
+library(RColorBrewer)
+library(GGally)
+library(knitr)
+library(lubridate)
+library(psych)
+```
